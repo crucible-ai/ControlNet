@@ -1,22 +1,13 @@
-"""
-tool_generate_face_poses.py
-
-This tool accepts a directory and iterates over it, picking out the images with faces that are more than 10% of the
-image.  Images are saved with their input filenames, but in a different directory.  JPEG artifacts may results.
-"""
-
 import json
 import os
 import sys
+import numpy
+import mediapipe as mp
 from dataclasses import dataclass, field
 from glob import glob
-from typing import Mapping
-
-import mediapipe as mp
-import numpy
 from PIL import Image
 from tqdm import tqdm
-
+from typing import Mapping
 
 # from mediapipe.solutions.drawing_styles import DrawingSpec, PoseLandmark  # Why can't we do this?
 mp_drawing = mp.solutions.drawing_utils
@@ -30,97 +21,16 @@ mp_body_connections = mp.solutions.pose_connections.POSE_CONNECTIONS
 DrawingSpec = mp.solutions.drawing_styles.DrawingSpec
 PoseLandmark = mp.solutions.drawing_styles.PoseLandmark
 
-# The bridges between the parts of the body:
-# Higher = more green channel
-# Left = more red channel
-# Right = mode blue channel
-d_thick = 5
-c_rad = 1
-default_draw = DrawingSpec(color=(250, 250, 250), thickness=d_thick, circle_radius=c_rad)
-
-face_right_draw = DrawingSpec(color=(10, 200, 200), thickness=d_thick, circle_radius=c_rad)
-face_left_draw = DrawingSpec(color=(200, 200, 10), thickness=d_thick, circle_radius=c_rad)
-
-shoulder_draw = DrawingSpec(color=(10, 120, 10), thickness=d_thick, circle_radius=c_rad)
-left_torso_draw = DrawingSpec(color=(200, 100, 10), thickness=d_thick, circle_radius=c_rad)
-right_torso_draw = DrawingSpec(color=(10, 100, 200), thickness=d_thick, circle_radius=c_rad)
-pelvis_torso_draw = DrawingSpec(color=(10, 90, 10), thickness=d_thick, circle_radius=c_rad)
-
-left_upper_leg_draw = DrawingSpec(color=(200, 70, 10), thickness=d_thick, circle_radius=c_rad)
-left_lower_leg_draw = DrawingSpec(color=(200, 50, 10), thickness=d_thick, circle_radius=c_rad)
-right_upper_leg_draw = DrawingSpec(color=(10, 70, 200), thickness=d_thick, circle_radius=c_rad)
-right_lower_leg_draw = DrawingSpec(color=(10, 50, 200), thickness=d_thick, circle_radius=c_rad)
-
-left_foot_draw = DrawingSpec(color=(250, 40, 10), thickness=d_thick, circle_radius=c_rad)
-right_foot_draw = DrawingSpec(color=(10, 40, 250), thickness=d_thick, circle_radius=c_rad)
-
-left_upper_arm_draw = DrawingSpec(color=(220, 120, 10), thickness=d_thick, circle_radius=c_rad)
-left_lower_arm_draw = DrawingSpec(color=(240, 100, 10), thickness=d_thick, circle_radius=c_rad)
-right_upper_arm_draw = DrawingSpec(color=(10, 120, 220), thickness=d_thick, circle_radius=c_rad)
-right_lower_arm_draw = DrawingSpec(color=(10, 100, 240), thickness=d_thick, circle_radius=c_rad)
-
-left_hand_draw = DrawingSpec(color=(250, 80, 10), thickness=d_thick, circle_radius=c_rad)
-right_hand_draw = DrawingSpec(color=(10, 80, 250), thickness=d_thick, circle_radius=c_rad)
-
-pose_connection_spec = {
-    # We are omitting the head because we're using the high-res head capture.
-    # Head:
-    # (PoseLandmark.RIGHT_EYE_OUTER, PoseLandmark.RIGHT_EAR): face_right_draw,
-    # (PoseLandmark.LEFT_EYE_OUTER, PoseLandmark.LEFT_EAR): face_left_draw,
-    # (PoseLandmark.NOSE, PoseLandmark.LEFT_EYE_INNER): face_left_draw,
-    # (PoseLandmark.MOUTH_LEFT, PoseLandmark.MOUTH_RIGHT): face_right_draw,
-    # (PoseLandmark.LEFT_EYE_INNER, PoseLandmark.LEFT_EYE): face_left_draw,
-    # (PoseLandmark.NOSE, PoseLandmark.RIGHT_EYE_INNER): face_right_draw,
-    # (PoseLandmark.LEFT_EYE, PoseLandmark.LEFT_EYE_OUTER): face_left_draw,
-    # (PoseLandmark.RIGHT_EYE_INNER, PoseLandmark.RIGHT_EYE): face_right_draw,
-    # (PoseLandmark.RIGHT_EYE, PoseLandmark.RIGHT_EYE_OUTER): face_right_draw,
-
-    # Torso:
-    (PoseLandmark.LEFT_SHOULDER, PoseLandmark.RIGHT_SHOULDER): shoulder_draw,
-    (PoseLandmark.LEFT_SHOULDER, PoseLandmark.LEFT_HIP): left_torso_draw,
-    (PoseLandmark.RIGHT_SHOULDER, PoseLandmark.RIGHT_HIP): right_torso_draw,
-    (PoseLandmark.LEFT_HIP, PoseLandmark.RIGHT_HIP): pelvis_torso_draw,
-
-    # Legs:
-    (PoseLandmark.LEFT_HIP, PoseLandmark.LEFT_KNEE): left_upper_leg_draw,
-    (PoseLandmark.RIGHT_HIP, PoseLandmark.RIGHT_KNEE): right_upper_leg_draw,
-    (PoseLandmark.LEFT_KNEE, PoseLandmark.LEFT_ANKLE): left_lower_leg_draw,
-    (PoseLandmark.RIGHT_KNEE, PoseLandmark.RIGHT_ANKLE): right_lower_leg_draw,
-
-    # Arms:
-    (PoseLandmark.RIGHT_SHOULDER, PoseLandmark.RIGHT_ELBOW): right_upper_arm_draw,
-    (PoseLandmark.RIGHT_ELBOW, PoseLandmark.RIGHT_WRIST): right_lower_arm_draw,
-    (PoseLandmark.LEFT_SHOULDER, PoseLandmark.LEFT_ELBOW): left_upper_arm_draw,
-    (PoseLandmark.LEFT_ELBOW, PoseLandmark.LEFT_WRIST): left_lower_arm_draw,
-
-    # Hands:
-    (PoseLandmark.LEFT_WRIST, PoseLandmark.LEFT_THUMB): left_hand_draw,
-    (PoseLandmark.LEFT_WRIST, PoseLandmark.LEFT_PINKY): left_hand_draw,
-    (PoseLandmark.LEFT_WRIST, PoseLandmark.LEFT_INDEX): left_hand_draw,
-    (PoseLandmark.LEFT_PINKY, PoseLandmark.LEFT_INDEX): left_hand_draw,
-
-    (PoseLandmark.RIGHT_WRIST, PoseLandmark.RIGHT_INDEX): right_hand_draw,
-    (PoseLandmark.RIGHT_PINKY, PoseLandmark.RIGHT_INDEX): right_hand_draw,
-    (PoseLandmark.RIGHT_WRIST, PoseLandmark.RIGHT_THUMB): right_hand_draw,
-    (PoseLandmark.RIGHT_WRIST, PoseLandmark.RIGHT_PINKY): right_hand_draw,
-
-    # Feet:
-    (PoseLandmark.RIGHT_ANKLE, PoseLandmark.RIGHT_HEEL): right_foot_draw,
-    (PoseLandmark.RIGHT_HEEL, PoseLandmark.RIGHT_FOOT_INDEX): right_foot_draw,
-    (PoseLandmark.RIGHT_ANKLE, PoseLandmark.RIGHT_FOOT_INDEX): right_foot_draw,
-    (PoseLandmark.LEFT_ANKLE, PoseLandmark.LEFT_FOOT_INDEX): left_foot_draw,
-    (PoseLandmark.LEFT_HEEL, PoseLandmark.LEFT_FOOT_INDEX): left_foot_draw,
-    (PoseLandmark.LEFT_ANKLE, PoseLandmark.LEFT_HEEL): left_foot_draw,
-}
-
-right_iris_draw = DrawingSpec(color=(10, 200, 250), thickness=4, circle_radius=1)
-right_eye_draw = DrawingSpec(color=(10, 200, 180), thickness=4, circle_radius=1)
-right_eyebrow_draw = DrawingSpec(color=(10, 220, 180), thickness=4, circle_radius=1)
-left_iris_draw = DrawingSpec(color=(250, 200, 10), thickness=4, circle_radius=1)
-left_eye_draw = DrawingSpec(color=(180, 200, 10), thickness=4, circle_radius=1)
-left_eyebrow_draw = DrawingSpec(color=(180, 220, 10), thickness=4, circle_radius=1)
-mouth_draw = DrawingSpec(color=(10, 180, 10), thickness=4, circle_radius=1)
-head_draw = DrawingSpec(color=(10, 200, 10), thickness=4, circle_radius=1)
+f_thick = 2
+f_rad = 1
+right_iris_draw = DrawingSpec(color=(10, 200, 250), thickness=f_thick, circle_radius=f_rad)
+right_eye_draw = DrawingSpec(color=(10, 200, 180), thickness=f_thick, circle_radius=f_rad)
+right_eyebrow_draw = DrawingSpec(color=(10, 220, 180), thickness=f_thick, circle_radius=f_rad)
+left_iris_draw = DrawingSpec(color=(250, 200, 10), thickness=f_thick, circle_radius=f_rad)
+left_eye_draw = DrawingSpec(color=(180, 200, 10), thickness=f_thick, circle_radius=f_rad)
+left_eyebrow_draw = DrawingSpec(color=(180, 220, 10), thickness=f_thick, circle_radius=f_rad)
+mouth_draw = DrawingSpec(color=(10, 180, 10), thickness=f_thick, circle_radius=f_rad)
+head_draw = DrawingSpec(color=(10, 200, 10), thickness=f_thick, circle_radius=f_rad)
 
 # mp_face_mesh.FACEMESH_CONTOURS has all the items we care about.
 face_connection_spec = {}
@@ -130,22 +40,20 @@ for edge in mp_face_mesh.FACEMESH_LEFT_EYE:
     face_connection_spec[edge] = left_eye_draw
 for edge in mp_face_mesh.FACEMESH_LEFT_EYEBROW:
     face_connection_spec[edge] = left_eyebrow_draw
-#for edge in mp_face_mesh.FACEMESH_LEFT_IRIS:
+# for edge in mp_face_mesh.FACEMESH_LEFT_IRIS:
 #    face_connection_spec[edge] = left_iris_draw
 for edge in mp_face_mesh.FACEMESH_RIGHT_EYE:
     face_connection_spec[edge] = right_eye_draw
 for edge in mp_face_mesh.FACEMESH_RIGHT_EYEBROW:
     face_connection_spec[edge] = right_eyebrow_draw
-#for edge in mp_face_mesh.FACEMESH_RIGHT_IRIS:
+# for edge in mp_face_mesh.FACEMESH_RIGHT_IRIS:
 #    face_connection_spec[edge] = right_iris_draw
 for edge in mp_face_mesh.FACEMESH_LIPS:
     face_connection_spec[edge] = mouth_draw
 
-iris_landmark_spec = {}
-#for i in range(478):
+iris_landmark_spec = {468: right_iris_draw, 473: left_iris_draw}
+# for i in range(478):
 #    iris_landmark_spec[i] = DrawingSpec(color=(0, 0, 0), thickness=1, circle_radius=1)
-iris_landmark_spec[468] = right_iris_draw
-iris_landmark_spec[473] = left_iris_draw
 
 
 def draw_pupils(image, landmark_list, drawing_spec, halfwidth: int = 2):
@@ -184,40 +92,29 @@ def reverse_channels(image):
     return image[:, :, ::-1]
 
 
-def compute_face_size_in_image(landmarks) -> float:
-    face_rect = [
-        landmarks[0].x,
-        landmarks[0].y,
-        landmarks[0].x,
-        landmarks[0].y,
-    ]  # Left, up, right, down.
-    for i in range(len(landmarks)):
-        face_rect[0] = min(face_rect[0], landmarks[i].x)
-        face_rect[1] = min(face_rect[1], landmarks[i].y)
-        face_rect[2] = max(face_rect[2], landmarks[i].x)
-        face_rect[3] = max(face_rect[3], landmarks[i].y)
-    face_width = abs(face_rect[2] - face_rect[0])
-    face_height = abs(face_rect[3] - face_rect[1])
-    face_percentage = face_width * face_height  # Already normalized, so we don't have to divide by image size.
-    return face_percentage
-
-
-def count_faces(image, min_confidence: float = 0.5) -> int:
-    """Given a BGR image, count the number of faces detected."""
-    CLOSE_RANGE_MODEL = 0
-    MID_RANGE_MODEL = 0
-    faces_detected = 0
-    for mod in [CLOSE_RANGE_MODEL, MID_RANGE_MODEL]:
-        with mp_face_detection.FaceDetection(
-            model_selection=mod,
-            min_detection_confidence=min_confidence
-        ) as face_detection:
-            results = face_detection.process(image)
-            if not results.detections:
-                continue
-            else:
-                faces_detected = max(len(results.detections), faces_detected)
-    return faces_detected
+def filter_small_faces(multi_landmarks, img_size, min_face_size_pixels):
+    filtered = []
+    for l in multi_landmarks:
+        landmarks = l.landmark
+        face_rect = [
+            landmarks[0].x,
+            landmarks[0].y,
+            landmarks[0].x,
+            landmarks[0].y,
+        ]  # Left, up, right, down.
+        for i in range(len(landmarks)):
+            face_rect[0] = min(face_rect[0], landmarks[i].x)
+            face_rect[1] = min(face_rect[1], landmarks[i].y)
+            face_rect[2] = max(face_rect[2], landmarks[i].x)
+            face_rect[3] = max(face_rect[3], landmarks[i].y)
+        face_width = abs(face_rect[2] - face_rect[0])
+        face_height = abs(face_rect[3] - face_rect[1])
+        face_width_pixels = face_width * img_size[0]
+        face_height_pixels = face_height * img_size[1]
+        face_size = min(face_width_pixels, face_height_pixels)
+        if face_size >= min_face_size_pixels:
+            filtered.append(l)
+    return filtered
 
 
 @dataclass
@@ -236,14 +133,14 @@ def main(
         input_glob: str,
         output_directory: str,
         annotated_output_directory: str = "",
-        min_image_size: int = 512,
-        min_face_size: float = 0.1,
+        min_image_size: int = 384,
+        max_image_size: int = 32766,
+        min_face_size_pixels: int = 64,
         min_face_detection_confidence: float = 0.5,
         prompt_mapping: dict = None,  # If present, maps a filename to a text prompt.
 ):
     status = RunProgress()
 
-    # Maybe resume from a previous run:
     if os.path.exists(status_filename):
         print("Continuing from checkpoint.")
         # Restore a saved state:
@@ -258,7 +155,10 @@ def main(
         status.pending = list(glob(input_glob))
         # Output label file:
         pout = open(prompt_filename, 'wt')
-    print(f"{len(status.pending)} images remain")
+        with open(status_filename, 'wt') as fout:
+            json.dump(status.__dict__, fout)
+
+    print(f"{len(status.pending)} images remaining")
 
     # If we don't have a preexisting set of labels (like for ImageNet/MSCOCO), just null-fill the mapping.
     # We will try on a per-image basis to see if there's a metadata .json.
@@ -269,9 +169,9 @@ def main(
     with tqdm(total=len(status.pending)) as pbar:
         while len(status.pending) > 0:
             full_filename = status.pending.pop()
-
             pbar.update(1)
             step += 1
+
             if step % 100 == 0:
                 # Checkpoint save:
                 with open(status_filename, 'wt') as fout:
@@ -302,78 +202,64 @@ def main(
                     # Skip NSFW images.
                     status.skipped_nsfw.append(full_filename)
                     continue
+
             # Try to get a prompt/caption from the metadata or the prompt mapping.
             image_prompt = image_metadata.get("caption", prompt_mapping.get(fname, ""))
 
             # Load image:
-            img = reverse_channels(numpy.asarray(Image.open(full_filename).convert("RGB")))
-            if min(img.shape[0], img.shape[1]) < min_image_size:
+            img = Image.open(full_filename).convert("RGB")
+            img_width = img.size[0]
+            img_height = img.size[1]
+            img_size = min(img.size[0], img.size[1])
+            if img_size < min_image_size or max(img_width, img_height) > max_image_size:
                 status.skipped_small.append(full_filename)
                 continue
 
             # We re-initialize the detector every time because it has a habit of triggering weird race conditions.
-            with mp.solutions.holistic.Holistic(
+            with mp_face_mesh.FaceMesh(
                     static_image_mode=True,
-                    model_complexity=2,
-                    enable_segmentation=True,
-                    refine_face_landmarks=True,
+                    max_num_faces=5,
+                    refine_landmarks=True,
                     min_detection_confidence=min_face_detection_confidence,
-            ) as holistic:
-                results = holistic.process(img.copy())
+            ) as facemesh:
+                img_rgb = numpy.asarray(img)
+                results = facemesh.process(img_rgb).multi_face_landmarks
 
                 # How much of the image does the face use?
-                if results.face_landmarks is None:
+                if results is None:
                     # Skip images with no faces.
                     status.skipped_noface.append(full_filename)
                     continue
                 else:
-                    # Find a bounding box for the face.
-                    face_percentage = compute_face_size_in_image(results.face_landmarks.landmark)
-                    if face_percentage < min_face_size:
+                    # Filter faces that are too small
+                    filtered_landmarks = filter_small_faces(results, (img_width, img_height), min_face_size_pixels)
+                    if not filtered_landmarks:
+                        # Skip images with no faces large enough
                         status.skipped_smallface.append(full_filename)
                         continue
 
-                annotated = numpy.asarray(img.copy())
+                # Annotations are drawn in BGR
+                annotated = reverse_channels(numpy.asarray(img)).copy()
                 empty = numpy.zeros_like(annotated)
 
                 for out in [annotated, empty]:
-                    # Draw the body:
-                    #mp_drawing.draw_landmarks(
-                    #    out,
-                    #    results.pose_landmarks,
-                    #    connections=pose_connection_spec.keys(),
-                    #    landmark_drawing_spec=None,
-                    #    connection_drawing_spec=pose_connection_spec
-                    #)
-                    # Draw the face:
-                    mp_drawing.draw_landmarks(
-                        out,
-                        results.face_landmarks,
-                        connections=face_connection_spec.keys(),
-                        landmark_drawing_spec=None,
-                        connection_drawing_spec=face_connection_spec
-                    )
-                    draw_pupils(out, results.face_landmarks, iris_landmark_spec, 2)
-                    # Draw hands
-                    #mp_drawing.draw_landmarks(
-                    #    out,
-                    #    results.left_hand_landmarks,
-                    #    connections=mp_hand_connections,
-                    #    landmark_drawing_spec=mp_drawing_styles.get_default_hand_landmarks_style()
-                    #)
-                    #mp_drawing.draw_landmarks(
-                    #    out,
-                    #    results.right_hand_landmarks,
-                    #    connections=mp_hand_connections,
-                    #    landmark_drawing_spec=mp_drawing_styles.get_default_hand_landmarks_style()
-                    #)
+                    # Draw detected faces:
+                    for face_landmarks in filtered_landmarks:
+                        mp_drawing.draw_landmarks(
+                            out,
+                            face_landmarks,
+                            connections=face_connection_spec.keys(),
+                            landmark_drawing_spec=None,
+                            connection_drawing_spec=face_connection_spec
+                        )
+                        draw_pupils(out, face_landmarks, iris_landmark_spec, 2)
 
             # Both annotated and empty are in BGR, not RGB.
-            annotated = reverse_channels(annotated)
             empty = reverse_channels(empty)
-            if annotation_filename:
-                Image.fromarray(annotated).save(annotation_filename)
             Image.fromarray(empty).save(output_filename)
+            if annotation_filename:
+                annotated = reverse_channels(annotated)
+                Image.fromarray(annotated).save(annotation_filename)
 
             # See https://github.com/lllyasviel/ControlNet/blob/main/docs/train.md for the training file format.
             # prompt.json
@@ -398,6 +284,7 @@ def main(
     print(f"{len(status.skipped_small)} images rejected for size.")
     print(f"{len(status.skipped_smallface)} images rejected for having faces too small.")
     print(f"{len(status.skipped_noface)} images rejected for not having faces.")
+    print(f"{len(status.skipped_nsfw)} images rejected for NSFW.")
 
 
 if __name__ == "__main__":
@@ -417,10 +304,10 @@ if __name__ == "__main__":
         target is the output.  We are generating source images from targets in this application, so the second argument 
         should be a folder full of images.  The third argument should be 'source', where the images should be places.
         Optionally, an 'annotated' directory can be provided.  Augmented images will be placed here.
-        
+
         A checkpoint file named 'generate_face_poses_checkpoint.json' will be created in the place where the script is 
         run.  If a run is cancelled, it can be resumed from this checkpoint.
-        
+
         If invoking the script from bash, do not forget to enclose globs with quotes.  Example usage:
         `python ./tool_generate_face_poses.py ./face_prompt.jsonl "/home/josephcatrambone/training_data/data-mscoco/images/train2017/*" /home/josephcatrambone/training_data/data-mscoco/images/source_2017/`
         """)
