@@ -147,7 +147,7 @@ def process(input_image: Image.Image, prompt, a_prompt, n_prompt, num_samples, d
         empty = reverse_channels(empty)
         #Image.fromarray(empty).save(output_filename)
 
-        empty = numpy.moveaxes(empty, 2, 0)  # h, w, c -> c, h, w
+        empty = numpy.moveaxis(empty, 2, 0)  # h, w, c -> c, h, w
         control = torch.from_numpy(empty.copy()).float().cuda() / 255.0
         control = torch.stack([control for _ in range(num_samples)], dim=0)
         # control = einops.rearrange(control, 'b h w c -> b c h w').clone()
