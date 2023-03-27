@@ -60,7 +60,9 @@ for edge in mp_face_mesh.FACEMESH_LIPS:
 iris_landmark_spec = {468: right_iris_draw, 473: left_iris_draw}
 
 model = create_model('./models/cldm_v21.yaml').cpu()
-model.load_state_dict(load_state_dict('./models/control_sd21_openpose.pth', location='cuda'))
+#model.load_state_dict(load_state_dict('./models/controlnet_face_condition_epoch_0.ckpt', location='cuda'))
+model.load_state_dict(load_state_dict('./models/controlnet_face_condition_epoch_4_0percent.ckpt', location='cuda'))
+#model.load_state_dict(load_state_dict('./models/controlnet_sd21_face.ckpt', location='cuda'))
 model = model.cuda()
 ddim_sampler = DDIMSampler(model)  # ControlNet _only_ works with DDIM.
 
@@ -101,11 +103,11 @@ def reverse_channels(image):
     return image[:, :, ::-1]
 
 
-def process(input_image: Image.Image, prompt, a_prompt, n_prompt, num_samples, ddim_steps, guess_mode, strength, scale, seed, eta):
+def process(input_image: Image.Image, prompt, a_prompt, n_prompt, max_faces, num_samples, ddim_steps, guess_mode, strength, scale, seed, eta):
     with torch.no_grad():
         with mp_face_mesh.FaceMesh(
                 static_image_mode=True,
-                max_num_faces=5,
+                max_num_faces=max_faces,
                 refine_landmarks=True,
                 min_detection_confidence=0.01,
         ) as facemesh:
@@ -145,7 +147,7 @@ def process(input_image: Image.Image, prompt, a_prompt, n_prompt, num_samples, d
 
         # Both annotated and empty are in BGR, not RGB.
         empty = reverse_channels(empty)
-        #Image.fromarray(empty).save(output_filename)
+        visualization = Image.fromarray(empty)  # Save to help debug.
 
         empty = numpy.moveaxis(empty, 2, 0)  # h, w, c -> c, h, w
         control = torch.from_numpy(empty.copy()).float().cuda() / 255.0
@@ -193,7 +195,7 @@ def process(input_image: Image.Image, prompt, a_prompt, n_prompt, num_samples, d
         x_samples = model.decode_first_stage(samples)
         # x_samples = (einops.rearrange(x_samples, 'b c h w -> b h w c') * 127.5 + 127.5).cpu().numpy().clip(0, 255).astype(numpy.uint8)
         x_samples = numpy.moveaxis((x_samples * 127.5 + 127.5).cpu().numpy().clip(0, 255).astype(numpy.uint8), 1, -1)  # b, c, h, w -> b, h, w, c
-        results = [x_samples[i] for i in range(num_samples)]
+        results = [visualization] + [x_samples[i] for i in range(num_samples)]
 
     return results
 
@@ -209,6 +211,7 @@ with block:
             run_button = gr.Button(label="Run")
             with gr.Accordion("Advanced options", open=False):
                 num_samples = gr.Slider(label="Images", minimum=1, maximum=12, value=1, step=1)
+                max_faces = gr.Slider(label="Max Faces", minimum=1, maximum=5, value=1, step=1)
                 strength = gr.Slider(label="Control Strength", minimum=0.0, maximum=2.0, value=1.0, step=0.01)
                 guess_mode = gr.Checkbox(label='Guess Mode', value=False)
                 ddim_steps = gr.Slider(label="Steps", minimum=1, maximum=100, value=20, step=1)
@@ -220,7 +223,7 @@ with block:
                                       value='longbody, lowres, bad anatomy, bad hands, missing fingers, extra digit, fewer digits, cropped, worst quality, low quality')
         with gr.Column():
             result_gallery = gr.Gallery(label='Output', show_label=False, elem_id="gallery").style(grid=2, height='auto')
-    ips = [input_image, prompt, a_prompt, n_prompt, num_samples, ddim_steps, guess_mode, strength, scale, seed, eta]
+    ips = [input_image, prompt, a_prompt, n_prompt, max_faces, num_samples, ddim_steps, guess_mode, strength, scale, seed, eta]
     run_button.click(fn=process, inputs=ips, outputs=[result_gallery])
 
 
