@@ -22,9 +22,16 @@ class LaionDataset(Dataset):
         target_filename = os.path.split(item['target'])[-1]
         prompt = item['prompt']
 
+        # If prompt is "" or null, make it something simple.
+        if not prompt:
+            print(f"Image with index {idx} / {source_filename} has no text.")
+            prompt = "an image"
+
         source_image = Image.open('./training/laion-face-processed/source/' + source_filename).convert("RGB")
-        target_image = Image.open('./training/laion-face-processed/target/' + source_filename).convert("RGB")
+        target_image = Image.open('./training/laion-face-processed/target/' + target_filename).convert("RGB")
         # Resize the image so that the minimum edge is bigger than 512x512, then crop center.
+        # This may cut off some parts of the face image, but in general they're smaller than 512x512 and we still want
+        # to cover the literal edge cases.
         img_size = source_image.size
         scale_factor = 512/min(img_size)
         source_image = source_image.resize((1+int(img_size[0]*scale_factor), 1+int(img_size[1]*scale_factor)))
