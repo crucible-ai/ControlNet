@@ -1,127 +1,21 @@
 import json
 import os
 import sys
-import numpy
-import mediapipe as mp
 from dataclasses import dataclass, field
 from glob import glob
-from PIL import Image
-from tqdm import tqdm
 from typing import Mapping
 
-# from mediapipe.solutions.drawing_styles import DrawingSpec, PoseLandmark  # Why can't we do this?
-mp_drawing = mp.solutions.drawing_utils
-mp_drawing_styles = mp.solutions.drawing_styles
-mp_face_detection = mp.solutions.face_detection  # Only for counting faces.
-mp_face_mesh = mp.solutions.face_mesh
-mp_face_connections = mp.solutions.face_mesh_connections.FACEMESH_TESSELATION
-mp_hand_connections = mp.solutions.hands_connections.HAND_CONNECTIONS
-mp_body_connections = mp.solutions.pose_connections.POSE_CONNECTIONS
+from PIL import Image
+from tqdm import tqdm
 
-DrawingSpec = mp.solutions.drawing_styles.DrawingSpec
-PoseLandmark = mp.solutions.drawing_styles.PoseLandmark
-
-f_thick = 2
-f_rad = 1
-right_iris_draw = DrawingSpec(color=(10, 200, 250), thickness=f_thick, circle_radius=f_rad)
-right_eye_draw = DrawingSpec(color=(10, 200, 180), thickness=f_thick, circle_radius=f_rad)
-right_eyebrow_draw = DrawingSpec(color=(10, 220, 180), thickness=f_thick, circle_radius=f_rad)
-left_iris_draw = DrawingSpec(color=(250, 200, 10), thickness=f_thick, circle_radius=f_rad)
-left_eye_draw = DrawingSpec(color=(180, 200, 10), thickness=f_thick, circle_radius=f_rad)
-left_eyebrow_draw = DrawingSpec(color=(180, 220, 10), thickness=f_thick, circle_radius=f_rad)
-mouth_draw = DrawingSpec(color=(10, 180, 10), thickness=f_thick, circle_radius=f_rad)
-head_draw = DrawingSpec(color=(10, 200, 10), thickness=f_thick, circle_radius=f_rad)
-
-# mp_face_mesh.FACEMESH_CONTOURS has all the items we care about.
-face_connection_spec = {}
-for edge in mp_face_mesh.FACEMESH_FACE_OVAL:
-    face_connection_spec[edge] = head_draw
-for edge in mp_face_mesh.FACEMESH_LEFT_EYE:
-    face_connection_spec[edge] = left_eye_draw
-for edge in mp_face_mesh.FACEMESH_LEFT_EYEBROW:
-    face_connection_spec[edge] = left_eyebrow_draw
-# for edge in mp_face_mesh.FACEMESH_LEFT_IRIS:
-#    face_connection_spec[edge] = left_iris_draw
-for edge in mp_face_mesh.FACEMESH_RIGHT_EYE:
-    face_connection_spec[edge] = right_eye_draw
-for edge in mp_face_mesh.FACEMESH_RIGHT_EYEBROW:
-    face_connection_spec[edge] = right_eyebrow_draw
-# for edge in mp_face_mesh.FACEMESH_RIGHT_IRIS:
-#    face_connection_spec[edge] = right_iris_draw
-for edge in mp_face_mesh.FACEMESH_LIPS:
-    face_connection_spec[edge] = mouth_draw
-
-iris_landmark_spec = {468: right_iris_draw, 473: left_iris_draw}
-# for i in range(478):
-#    iris_landmark_spec[i] = DrawingSpec(color=(0, 0, 0), thickness=1, circle_radius=1)
-
-
-def draw_pupils(image, landmark_list, drawing_spec, halfwidth: int = 2):
-    """We have a custom function to draw the pupils because the mp.draw_landmarks method requires a parameter for all
-    landmarks.  Until our PR is merged into mediapipe, we need this separate method."""
-    if len(image.shape) != 3:
-        raise ValueError("Input image must be H,W,C.")
-    image_rows, image_cols, image_channels = image.shape
-    if image_channels != 3:  # BGR channels
-        raise ValueError('Input image must contain three channel bgr data.')
-    for idx, landmark in enumerate(landmark_list.landmark):
-        if (
-                (landmark.HasField('visibility') and landmark.visibility < 0.9) or
-                (landmark.HasField('presence') and landmark.presence < 0.5)
-        ):
-            continue
-        if landmark.x >= 1.0 or landmark.x < 0 or landmark.y >= 1.0 or landmark.y < 0:
-            continue
-        image_x = int(image_cols*landmark.x)
-        image_y = int(image_rows*landmark.y)
-        draw_color = None
-        if isinstance(drawing_spec, Mapping):
-            if drawing_spec.get(idx) is None:
-                continue
-            else:
-                draw_color = drawing_spec[idx].color
-        elif isinstance(drawing_spec, DrawingSpec):
-            draw_color = drawing_spec.color
-        image[image_y-halfwidth:image_y+halfwidth, image_x-halfwidth:image_x+halfwidth, :] = draw_color
-
-
-def reverse_channels(image):
-    """Given a numpy array in RGB form, convert to BGR.  Will also convert from BGR to RGB."""
-    # im[:,:,::-1] is a neat hack to convert BGR to RGB by reversing the indexing order.
-    # im[:,:,::[2,1,0]] would also work but makes a copy of the data.
-    return image[:, :, ::-1]
-
-
-def filter_small_faces(multi_landmarks, img_size, min_face_size_pixels):
-    filtered = []
-    for l in multi_landmarks:
-        landmarks = l.landmark
-        face_rect = [
-            landmarks[0].x,
-            landmarks[0].y,
-            landmarks[0].x,
-            landmarks[0].y,
-        ]  # Left, up, right, down.
-        for i in range(len(landmarks)):
-            face_rect[0] = min(face_rect[0], landmarks[i].x)
-            face_rect[1] = min(face_rect[1], landmarks[i].y)
-            face_rect[2] = max(face_rect[2], landmarks[i].x)
-            face_rect[3] = max(face_rect[3], landmarks[i].y)
-        face_width = abs(face_rect[2] - face_rect[0])
-        face_height = abs(face_rect[3] - face_rect[1])
-        face_width_pixels = face_width * img_size[0]
-        face_height_pixels = face_height * img_size[1]
-        face_size = min(face_width_pixels, face_height_pixels)
-        if face_size >= min_face_size_pixels:
-            filtered.append(l)
-    return filtered
+from laion_face_common import generate_annotation
 
 
 @dataclass
 class RunProgress:
     pending: list = field(default_factory=list)
     success: list = field(default_factory=list)
-    skipped_small: list = field(default_factory=list)
+    skipped_size: list = field(default_factory=list)
     skipped_nsfw: list = field(default_factory=list)
     skipped_noface: list = field(default_factory=list)
     skipped_smallface: list = field(default_factory=list)
@@ -136,7 +30,6 @@ def main(
         min_image_size: int = 384,
         max_image_size: int = 32766,
         min_face_size_pixels: int = 64,
-        min_face_detection_confidence: float = 0.5,
         prompt_mapping: dict = None,  # If present, maps a filename to a text prompt.
 ):
     status = RunProgress()
@@ -212,53 +105,27 @@ def main(
             img_height = img.size[1]
             img_size = min(img.size[0], img.size[1])
             if img_size < min_image_size or max(img_width, img_height) > max_image_size:
-                status.skipped_small.append(full_filename)
+                status.skipped_size.append(full_filename)
                 continue
 
             # We re-initialize the detector every time because it has a habit of triggering weird race conditions.
-            with mp_face_mesh.FaceMesh(
-                    static_image_mode=True,
-                    max_num_faces=5,
-                    refine_landmarks=True,
-                    min_detection_confidence=min_face_detection_confidence,
-            ) as facemesh:
-                img_rgb = numpy.asarray(img)
-                results = facemesh.process(img_rgb).multi_face_landmarks
+            empty, annotated, faces_before_filtering, faces_after_filtering = generate_annotation(
+                img,
+                max_faces=5,
+                min_face_size_pixels=min_face_size_pixels,
+                return_annotation_data=True
+            )
+            if faces_before_filtering == 0:
+                # Skip images with no faces.
+                status.skipped_noface.append(full_filename)
+                continue
+            if faces_after_filtering == 0:
+                # Skip images with no faces large enough
+                status.skipped_smallface.append(full_filename)
+                continue
 
-                # How much of the image does the face use?
-                if results is None:
-                    # Skip images with no faces.
-                    status.skipped_noface.append(full_filename)
-                    continue
-                else:
-                    # Filter faces that are too small
-                    filtered_landmarks = filter_small_faces(results, (img_width, img_height), min_face_size_pixels)
-                    if not filtered_landmarks:
-                        # Skip images with no faces large enough
-                        status.skipped_smallface.append(full_filename)
-                        continue
-
-                # Annotations are drawn in BGR
-                annotated = reverse_channels(numpy.asarray(img)).copy()
-                empty = numpy.zeros_like(annotated)
-
-                for out in [annotated, empty]:
-                    # Draw detected faces:
-                    for face_landmarks in filtered_landmarks:
-                        mp_drawing.draw_landmarks(
-                            out,
-                            face_landmarks,
-                            connections=face_connection_spec.keys(),
-                            landmark_drawing_spec=None,
-                            connection_drawing_spec=face_connection_spec
-                        )
-                        draw_pupils(out, face_landmarks, iris_landmark_spec, 2)
-
-            # Both annotated and empty are in BGR, not RGB.
-            empty = reverse_channels(empty)
             Image.fromarray(empty).save(output_filename)
             if annotation_filename:
-                annotated = reverse_channels(annotated)
                 Image.fromarray(annotated).save(annotation_filename)
 
             # See https://github.com/lllyasviel/ControlNet/blob/main/docs/train.md for the training file format.
@@ -281,7 +148,7 @@ def main(
     pout.close()
     print("Done!")
     print(f"{len(status.success)} images added to dataset.")
-    print(f"{len(status.skipped_small)} images rejected for size.")
+    print(f"{len(status.skipped_size)} images rejected for size.")
     print(f"{len(status.skipped_smallface)} images rejected for having faces too small.")
     print(f"{len(status.skipped_noface)} images rejected for not having faces.")
     print(f"{len(status.skipped_nsfw)} images rejected for NSFW.")
