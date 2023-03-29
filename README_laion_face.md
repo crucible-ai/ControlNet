@@ -14,14 +14,14 @@ This dataset is designed to train a ControlNet with human facial expressions.  I
 
 Cherry-picked from ControlNet + Stable Diffusion v2.1 Base
 
-|Prompt|Annotation|Target|
-|---|---|---|
-|Happy|![](samples_laion_face_dataset/happy_annotation.png)|![](samples_laion_face_dataset/happy_result.png)|
-|Neutral|![](samples_laion_face_dataset/neutral_annotation.png)|![](samples_laion_face_dataset/neutral_result.png)|
-|Sad|![](samples_laion_face_dataset/sad_annotation.png)|![](samples_laion_face_dataset/sad_result.png)|
-|Screaming|![](samples_laion_face_dataset/screaming_annotation.png)|![](samples_laion_face_dataset/screaming_result.png)|
-|Sideways|![](samples_laion_face_dataset/sideways_annotation.png)|![](samples_laion_face_dataset/sideways_result.png)|
-|Surprised|![](samples_laion_face_dataset/surprised_annotation.png)|![](samples_laion_face_dataset/surprised_result.png)|
+|Prompt|Input|Face Detection|Output|
+|---:|:---:|:---:|:---:|
+|Happy|  <img src="samples_laion_face_dataset/happy_source.jpg" width="256" height="256">  | <img src="samples_laion_face_dataset/happy_annotation.png" width="256" height="256"> | <img src="samples_laion_face_dataset/happy_result.png" width="256" height="256"> |
+|Neutral| <img src="samples_laion_face_dataset/neutral_source.jpg" width="256" height="256"> | <img src="samples_laion_face_dataset/neutral_annotation.png" with="256" height="256"> | <img src="samples_laion_face_dataset/neutral_result.png" width="256" height="256"> |
+|Sad| <img src="samples_laion_face_dataset/sad_source.jpg" width="256" height="256"> | <img src="samples_laion_face_dataset/sad_annotation.png" width="256" height="256"> | <img src="samples_laion_face_dataset/sad_result.png" width="256" height="256"> |
+|Screaming| <img src="samples_laion_face_dataset/screaming_source.jpg" width="256" height="256"> | <img src="samples_laion_face_dataset/screaming_annotation.png" width="256" height="256"> | <img src="samples_laion_face_dataset/screaming_result.png" width="256" height="256"> |
+|Sideways| <img src="samples_laion_face_dataset/sideways_source.jpg" width="256" height="256"> | <img src="samples_laion_face_dataset/sideways_annotation.png" width="256" height="256"> | <img src="samples_laion_face_dataset/sideways_result.png" width="256" height="256"> |
+|Surprised| <img src="samples_laion_face_dataset/surprised_source.jpg" width="256" height="256"> | <img src="samples_laion_face_dataset/surprised_annotation.png" width="256" height="256"> | <img src="samples_laion_face_dataset/surprised_result.png" width="256" height="256"> |
 
 
 ## Dataset Contents:
@@ -85,6 +85,8 @@ model = create_model('./models/cldm_v21.yaml').cpu()  # If you fine-tuned on SD2
 model.load_state_dict(load_state_dict('./models/control_sd21_openpose.pth', location='cuda'))
 ```
 
+The model has some limitations: while it is empirically better at tracking gaze and mouth poses than previous attempts, it may still ignore controls.  Adding details to the prompt like, "looking right" can abate bad behavior. 
+
 
 # License:
 
@@ -103,6 +105,8 @@ Our modifications are released under the same license.
 # Credits and Thanks:
 
 Greatest thanks to Zhang et al. for ControlNet, Rombach et al. (StabilityAI) for Stable Diffusion, and Schuhmann et al. for LAION.
+
+Sample images for this document were obtained from Unsplash and are CC0.
 
 ```
 @misc{zhang2023adding,
