@@ -34,7 +34,21 @@ By repeating the above simple structure 14 times, we can control stable diffusio
 
 ![img](github_page/sd.png)
 
+In this way, the ControlNet can **reuse** the SD encoder as a **deep, strong, robust, and powerful backbone** to learn diverse controls. Many evidences (like [this](https://jerryxu.net/ODISE/) and [this](https://vpd.ivg-research.xyz/)) validate that the SD encoder is an excellent backbone.
+
 Note that the way we connect layers is computational efficient. The original SD encoder does not need to store gradients (the locked original SD Encoder Block 1234 and Middle). The required GPU memory is not much larger than original SD, although many layers are added. Great!
+
+# Features & News
+
+2023/03/03 - We released a discussion - [Precomputed ControlNet: Speed up ControlNet by 45%, but is it necessary?](https://github.com/lllyasviel/ControlNet/discussions/216)
+
+2023/02/26 - We released a blog - [Ablation Study: Why ControlNets use deep encoder? What if it was lighter? Or even an MLP?](https://github.com/lllyasviel/ControlNet/discussions/188)
+
+2023/02/20 - Implementation for non-prompt mode released. See also [Guess Mode / Non-Prompt Mode](#guess-anchor).
+
+2023/02/12 - Now you can play with any community model by [Transferring the ControlNet](https://github.com/lllyasviel/ControlNet/discussions/12).
+
+2023/02/11 - [Low VRAM mode](docs/low_vram.md) is added. Please use this mode if you are using 8GB GPU(s) or if you want larger batch size.
 
 # Production-Ready Pretrained Models
 
@@ -48,14 +62,6 @@ All models and detectors can be downloaded from [our Hugging Face page](https://
 We provide 9 Gradio apps with these models.
 
 All test images can be found at the folder "test_imgs".
-
-### News
-
-2023/02/20 - Implementation for non-prompt mode released. See also [Guess Mode / Non-Prompt Mode](#guess-anchor).
-
-2023/02/12 - Now you can play with any community model by [Transferring the ControlNet](https://github.com/lllyasviel/ControlNet/discussions/12).
-
-2023/02/11 - [Low VRAM mode](docs/low_vram.md) is added. Please use this mode if you are using 8GB GPU(s) or if you want larger batch size.
 
 ## ControlNet with Canny Edge
 
@@ -119,7 +125,7 @@ We actually provide an interactive interface
 
     python gradio_scribble2image_interactive.py
 
-However, because gradio is very [buggy](https://github.com/gradio-app/gradio/issues/3166) and difficult to customize, right now, user need to first set canvas width and heights and then click "Open drawing canvas" to get a drawing area. Please do not upload image to that drawing canvas. Also, the drawing area is very small; it should be bigger. But I failed to find out how to make it larger. Again, gradio is really buggy.
+~~However, because gradio is very [buggy](https://github.com/gradio-app/gradio/issues/3166) and difficult to customize, right now, user need to first set canvas width and heights and then click "Open drawing canvas" to get a drawing area. Please do not upload image to that drawing canvas. Also, the drawing area is very small; it should be bigger. But I failed to find out how to make it larger. Again, gradio is really buggy.~~ (Now fixed, will update asap)
 
 The below dog sketch is drawn by me. Perhaps we should draw a better dog for showcase.
 
@@ -216,25 +222,25 @@ This model is not available right now. We need to evaluate the potential risks b
 
 The "guess mode" (or called non-prompt mode) will completely unleash all the power of the very powerful ControlNet encoder. 
 
+See also the blog - [Ablation Study: Why ControlNets use deep encoder? What if it was lighter? Or even an MLP?](https://github.com/lllyasviel/ControlNet/discussions/188)
+
 You need to manually check the "Guess Mode" toggle to enable this mode.
 
-In this mode, the ControlNet encoder will try best to recognize the content of the input control map, like depth map, edge map, scribbles, etc, even when you remove all prompts.
+In this mode, the ControlNet encoder will try best to recognize the content of the input control map, like depth map, edge map, scribbles, etc, even if you remove all prompts.
 
-**Let's play some really harder games!**
+**Let's have fun with some very challenging experimental settings!**
 
-**No prompts. No "positive" prompts. No "negative" prompts. One single diffusion loop. No extra caption detector.**
-
-This mode is well-suited for comparing recent various projects to control stable diffusion, because the non-prompted generating task is significantly more difficult than prompted task. In this experimental setting, the performance difference between various recent research projects will be **VERY BIG**.
+**No prompts. No "positive" prompts. No "negative" prompts. No extra caption detector. One single diffusion loop.**
 
 For this mode, we recommend to use 50 steps and guidance scale between 3 and 5.
 
 ![p](github_page/uc2a.png)
 
-**No prompts. No "positive" prompts. No "negative" prompts.**
+No prompts:
 
 ![p](github_page/uc2b.png)
 
-Note that the below example is 768×768. **No prompts. No "positive" prompts. No "negative" prompts.**
+Note that the below example is 768×768. No prompts. No "positive" prompts. No "negative" prompts.
 
 ![p](github_page/uc1.png)
 
@@ -250,9 +256,37 @@ Without prompt, the HED seems good at generating images look like paintings when
 
 ![p](github_page/uc6.png)
 
+The Guess Mode is also supported in [WebUI Plugin](https://github.com/Mikubill/sd-webui-controlnet):
+
+![p](github_page/uci1.png)
+
+No prompts. Default WebUI parameters. Pure random results with the seed being 12345. Standard SD1.5. Input scribble is in "test_imgs" folder to reproduce.
+
+![p](github_page/uci2.png)
+
+Below is another challenging example:
+
+![p](github_page/uci3.png)
+
+No prompts. Default WebUI parameters. Pure random results with the seed being 12345. Standard SD1.5. Input scribble is in "test_imgs" folder to reproduce.
+
+![p](github_page/uci4.png)
+
 Note that in the guess mode, you will still be able to input prompts. The only difference is that the model will "try harder" to guess what is in the control map even if you do not provide the prompt. Just try it yourself!
 
 Besides, if you write some scripts (like BLIP) to generate image captions from the "guess mode" images, and then use the generated captions as prompts to diffuse again, you will get a SOTA pipeline for fully automatic conditional image generating.
+
+# Combining Multiple ControlNets
+
+ControlNets are composable: more than one ControlNet can be easily composed to multi-condition control.
+
+Right now this feature is in experimental stage in the [Mikubill' A1111 Webui Plugin](https://github.com/Mikubill/sd-webui-controlnet):
+
+![p](github_page/multi2.png)
+
+![p](github_page/multi.png)
+
+As long as the models are controlling the same SD, the "boundary" between different research projects does not even exist. This plugin also allows different methods to work together!
 
 # Use ControlNet in Any Community Model (SD1.X)
 
@@ -280,9 +314,13 @@ Special Thank to the great project - [Mikubill' A1111 Webui Plugin](https://gith
 
 We also thank Hysts for making [Hugging Face Space](https://huggingface.co/spaces/hysts/ControlNet) as well as more than 65 models in that amazing [Colab list](https://github.com/camenduru/controlnet-colab)! 
 
+Thank haofanwang for making [ControlNet-for-Diffusers](https://github.com/haofanwang/ControlNet-for-Diffusers)!
+
 We also thank all authors for making Controlnet DEMOs, including but not limited to [fffiloni](https://huggingface.co/spaces/fffiloni/ControlNet-Video), [other-model](https://huggingface.co/spaces/hysts/ControlNet-with-other-models), [ThereforeGames](https://github.com/AUTOMATIC1111/stable-diffusion-webui/discussions/7784), [RamAnanth1](https://huggingface.co/spaces/RamAnanth1/ControlNet), etc!
 
 Besides, you may also want to read these amazing related works:
+
+[Composer: Creative and Controllable Image Synthesis with Composable Conditions](https://github.com/damo-vilab/composer): A much bigger model to control diffusion!
 
 [T2I-Adapter: Learning Adapters to Dig out More Controllable Ability for Text-to-Image Diffusion Models](https://github.com/TencentARC/T2I-Adapter): A much smaller model to control stable diffusion!
 
