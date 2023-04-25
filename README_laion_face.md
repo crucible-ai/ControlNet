@@ -14,15 +14,22 @@ This dataset is designed to train a ControlNet with human facial expressions.  I
 
 Cherry-picked from ControlNet + Stable Diffusion v2.1 Base
 
-|Prompt|Input|Face Detection|Output|
-|---:|:---:|:---:|:---:|
-|Happy|  <img src="samples_laion_face_dataset/happy_source.jpg" width="256" height="256">  | <img src="samples_laion_face_dataset/happy_annotation.png" width="256" height="256"> | <img src="samples_laion_face_dataset/happy_result.png" width="256" height="256"> |
-|Neutral| <img src="samples_laion_face_dataset/neutral_source.jpg" width="256" height="256"> | <img src="samples_laion_face_dataset/neutral_annotation.png" with="256" height="256"> | <img src="samples_laion_face_dataset/neutral_result.png" width="256" height="256"> |
-|Sad| <img src="samples_laion_face_dataset/sad_source.jpg" width="256" height="256"> | <img src="samples_laion_face_dataset/sad_annotation.png" width="256" height="256"> | <img src="samples_laion_face_dataset/sad_result.png" width="256" height="256"> |
-|Screaming| <img src="samples_laion_face_dataset/screaming_source.jpg" width="256" height="256"> | <img src="samples_laion_face_dataset/screaming_annotation.png" width="256" height="256"> | <img src="samples_laion_face_dataset/screaming_result.png" width="256" height="256"> |
-|Sideways| <img src="samples_laion_face_dataset/sideways_source.jpg" width="256" height="256"> | <img src="samples_laion_face_dataset/sideways_annotation.png" width="256" height="256"> | <img src="samples_laion_face_dataset/sideways_result.png" width="256" height="256"> |
-|Surprised| <img src="samples_laion_face_dataset/surprised_source.jpg" width="256" height="256"> | <img src="samples_laion_face_dataset/surprised_annotation.png" width="256" height="256"> | <img src="samples_laion_face_dataset/surprised_result.png" width="256" height="256"> |
+|Input|Face Detection|Output|
+|:---:|:---:|:---:|
+|<img src="samples_laion_face_dataset/happy_source.jpg" width="256" height="256"> | <img src="samples_laion_face_dataset/happy_annotation.png" width="256" height="256"> | <img src="samples_laion_face_dataset/happy_result.png" width="256" height="256"> |
+|<img src="samples_laion_face_dataset/neutral_source.jpg" width="256" height="256"> | <img src="samples_laion_face_dataset/neutral_annotation.png" with="256" height="256"> | <img src="samples_laion_face_dataset/neutral_result.png" width="256" height="256"> |
+|<img src="samples_laion_face_dataset/sad_source.jpg" width="256" height="256"> | <img src="samples_laion_face_dataset/sad_annotation.png" width="256" height="256"> | <img src="samples_laion_face_dataset/sad_result.png" width="256" height="256"> |
+|<img src="samples_laion_face_dataset/screaming_source.jpg" width="256" height="256"> | <img src="samples_laion_face_dataset/screaming_annotation.png" width="256" height="256"> | <img src="samples_laion_face_dataset/screaming_result.png" width="256" height="256"> |
+|<img src="samples_laion_face_dataset/sideways_source.jpg" width="256" height="256"> | <img src="samples_laion_face_dataset/sideways_annotation.png" width="256" height="256"> | <img src="samples_laion_face_dataset/sideways_result.png" width="256" height="256"> |
+|<img src="samples_laion_face_dataset/surprised_source.jpg" width="256" height="256"> | <img src="samples_laion_face_dataset/surprised_annotation.png" width="256" height="256"> | <img src="samples_laion_face_dataset/surprised_result.png" width="256" height="256"> |
 
+Images with multiple faces are also supported:
+
+<img src="samples_laion_face_dataset/family_source.jpg">
+
+<img src="samples_laion_face_dataset/family_annotation.png">
+
+<img src="samples_laion_face_dataset/family_result.png">
 
 ## Dataset Contents:
 
