@@ -6,8 +6,8 @@ import numpy
 import torch
 from PIL import Image, ImageDraw
 
-from models.mtcnn import MTCNN
-from models.inception_resnet_v1 import InceptionResnetV1
+from .models.mtcnn import MTCNN
+from .models.inception_resnet_v1 import InceptionResnetV1
 
 
 EMBEDDING_SIZE = 512
