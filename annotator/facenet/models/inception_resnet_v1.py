@@ -210,6 +210,11 @@ class InceptionResnetV1(nn.Module):
     ):
         super().__init__()
 
+        if model_path is None:
+            model_path = get_d
+            #model_path = os.path.join(get_torch_home(), 'checkpoints')
+            #os.makedirs(model_dir, exist_ok=True)
+
         # Set simple attributes
         self.pretrained = pretrained
         self.classify = classify
@@ -310,7 +315,7 @@ class InceptionResnetV1(nn.Module):
         return x
 
 
-def load_weights(mdl, name, model_path=None):
+def load_weights(mdl, name, model_path):
     """Download pretrained state_dict and load into model.
 
     Arguments:
@@ -327,13 +332,7 @@ def load_weights(mdl, name, model_path=None):
     else:
         raise ValueError('Pretrained models only exist for "vggface2" and "casia-webface"')
 
-    if model_path is None:
-        model_dir = os.path.join(get_torch_home(), 'checkpoints')
-        os.makedirs(model_dir, exist_ok=True)
-    else:
-        model_dir = model_path
-
-    cached_file = os.path.join(model_dir, os.path.basename(path))
+    cached_file = os.path.join(model_path, os.path.basename(path))
     if not os.path.exists(cached_file):
         download_url_to_file(path, cached_file)
 
@@ -341,13 +340,3 @@ def load_weights(mdl, name, model_path=None):
     mdl.load_state_dict(state_dict)
 
 
-def get_torch_home():
-    torch_home = os.path.expanduser(
-        os.getenv("MODEL_PATH",
-            os.getenv(
-                'TORCH_HOME',
-                os.path.join(os.getenv('XDG_CACHE_HOME', '~/.cache'), 'torch')
-            )
-        )
-    )
-    return torch_home

@@ -4,6 +4,7 @@ import numpy as np
 import os
 
 from .utils.detect_face import detect_face, extract_face
+from .utils.download import get_default_model_path
 
 
 class PNet(nn.Module):
@@ -30,8 +31,9 @@ class PNet(nn.Module):
         self.training = False
 
         if pretrained:
+            # TODO: If a path is specified, it's pretrained.
             if model_dir is None:
-                state_dict_path = os.path.join(os.path.dirname(__file__), '../data/pnet.pt')
+                state_dict_path = os.path.join(get_default_model_path(), 'pnet.pt')
             else:
                 state_dict_path = os.path.join(model_dir, "pnet.pt")
             state_dict = torch.load(state_dict_path)
@@ -79,7 +81,7 @@ class RNet(nn.Module):
 
         if pretrained:
             if model_dir is None:
-                state_dict_path = os.path.join(os.path.dirname(__file__), '../data/rnet.pt')
+                state_dict_path = os.path.join(get_default_model_path(), 'rnet.pt')
             else:
                 state_dict_path = os.path.join(model_dir, 'rnet.pt')
             state_dict = torch.load(state_dict_path)
@@ -135,7 +137,7 @@ class ONet(nn.Module):
 
         if pretrained:
             if model_dir is None:
-                state_dict_path = os.path.join(os.path.dirname(__file__), '../data/onet.pt')
+                state_dict_path = os.path.join(get_default_model_path(), 'onet.pt')
             else:
                 state_dict_path = os.path.join(model_dir, "onet.pt")
             state_dict = torch.load(state_dict_path)

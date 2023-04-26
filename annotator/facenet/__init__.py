@@ -106,9 +106,21 @@ class FaceNet:
             center_y = bboxes[idx, 1] + (height//2)
             size = max(width, height)
             FaceNet.draw_embedding_image(
-                embeddings[idx,:],
+                embeddings[idx, :],
                 (center_x, center_y),
                 size,
                 image,
             )
         return image
+
+
+def get_torch_home():
+    torch_home = os.path.expanduser(
+        os.getenv("MODEL_PATH",
+            os.getenv(
+                'TORCH_HOME',
+                os.path.join(os.getenv('XDG_CACHE_HOME', '~/.cache'), 'torch')
+            )
+        )
+    )
+    return torch_home

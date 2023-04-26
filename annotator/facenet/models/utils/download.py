@@ -43,6 +43,18 @@ except ImportError:
                 sys.stderr.write('\n')
 
 
+def get_default_model_path():
+    torch_home = os.path.expanduser(
+        os.getenv("MODEL_PATH",
+            os.getenv(
+                'TORCH_HOME',
+                os.path.join(os.getenv('XDG_CACHE_HOME', '~/.cache'), 'torch')
+            )
+        )
+    )
+    return torch_home
+
+
 def download_url_to_file(url, dst, hash_prefix=None, progress=True):
     r"""Download object at the given URL to a local path.
     Args:
