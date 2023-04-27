@@ -5,6 +5,7 @@ import tempfile
 
 from PIL import Image
 from torch.utils.data import Dataset
+from torchvision.transforms.functional import to_tensor
 
 from annotator.facenet import FaceNet
 
@@ -15,7 +16,7 @@ BASE_TRAINING_PATH = os.environ.get("BASE_TRAINING_PATH", "./training/laion-face
 
 
 class FaceNetLaionFaceDataset(Dataset):
-    def __init__(self, model_path: os.PathLike | str):
+    def __init__(self, model_path: os.PathLike):
         self.model = FaceNet(model_path=model_path)
         self.data = []
         with open(os.path.join(BASE_TRAINING_PATH, 'prompt.jsonl'), 'rt') as f:
@@ -59,10 +60,6 @@ class FaceNetLaionFaceDataset(Dataset):
 
         # Normalize target images to [-1, 1].
         target = (target.astype(numpy.float32) / 127.5) - 1.0
-
-        # Expand the dimensions since both of these are luma.
-        source = numpy.expand_dims(source, axis=0)
-        target = numpy.expand_dims(target, axis=0)
 
         return dict(jpg=target, txt=prompt, hint=source)
 

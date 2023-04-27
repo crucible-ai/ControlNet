@@ -11,6 +11,7 @@ from .models.inception_resnet_v1 import InceptionResnetV1
 
 
 EMBEDDING_SIZE = 512
+PIXEL_FORMAT = 'RGB'  # ControlNet expected RGB data.
 
 
 class FaceNet:
@@ -95,10 +96,12 @@ class FaceNet:
             )
 
     def create_embedding_image(self, image: Image.Image) -> Image.Image:
+        image = Image.new(PIXEL_FORMAT, image.size)
         # Detect all faces:
         faces, probabilities, bboxes, _ = self.detector(image)
+        if faces is None:
+            return image
         embeddings = self.encoder(faces)
-        image = Image.new('L', image.size)
         for idx in range(0, faces.shape[0]):
             width = bboxes[idx, 2] - bboxes[idx, 0]
             height = bboxes[idx, 3] - bboxes[idx, 1]
