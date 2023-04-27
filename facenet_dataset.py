@@ -60,6 +60,10 @@ class FaceNetLaionFaceDataset(Dataset):
         # Normalize target images to [-1, 1].
         target = (target.astype(numpy.float32) / 127.5) - 1.0
 
+        # Expand the dimensions since both of these are luma.
+        source = numpy.expand_dims(source, axis=0)
+        target = numpy.expand_dims(target, axis=0)
+
         return dict(jpg=target, txt=prompt, hint=source)
 
 
@@ -77,14 +81,17 @@ class FaceNetMSCOCODataset(Dataset):
                 cached_data = json.load(fin)
                 self.image_id_to_filename = cached_data['image_to_filename']
                 self.image_caption_pairs = cached_data['image_caption_pairs']
+                # After loading, JSON tends to cast int values to strings.
+                self.image_id_to_filename = {int(k): v for k, v in self.image_id_to_filename.items()}
+                self.image_caption_pairs = [(int(x[0]), x[1]) for x in self.image_caption_pairs]
         else:
             print("Preprocessing images in captions_train2017 and removing non-face images.")
             with open(os.path.join(BASE_TRAINING_PATH, 'annotations', 'captions_train2017.json'), 'rt') as f:
                 raw_data = json.load(f)
             # First: load and remap data.
-            self.image_id_to_filename = {data["id"]: data["file_name"] for data in raw_data["images"]}
+            self.image_id_to_filename = {int(data["id"]): data["file_name"] for data in raw_data["images"]}
             for sample in raw_data["annotations"]:
-                image_id = sample["image_id"]
+                image_id = int(sample["image_id"])  # NOTE: Image ID != Caption ID
                 caption = sample["caption"]
                 if image_id not in self.image_id_to_filename:
                     print(f"Got caption for image {image_id}, but image not found in image list.")
@@ -147,6 +154,10 @@ class FaceNetMSCOCODataset(Dataset):
 
         # Normalize target images to [-1, 1].
         target = (target.astype(numpy.float32) / 127.5) - 1.0
+
+        # Expand the dimensions since both of these are luma.
+        source = numpy.expand_dims(source, axis=0)
+        target = numpy.expand_dims(target, axis=0)
 
         return dict(jpg=target, txt=prompt, hint=source)
 
