@@ -152,9 +152,5 @@ class FaceNetMSCOCODataset(Dataset):
         # Normalize target images to [-1, 1].
         target = (target.astype(numpy.float32) / 127.5) - 1.0
 
-        # Expand the dimensions since both of these are luma.
-        source = numpy.expand_dims(source, axis=0)
-        target = numpy.expand_dims(target, axis=0)
-
         return dict(jpg=target, txt=prompt, hint=source)
 
