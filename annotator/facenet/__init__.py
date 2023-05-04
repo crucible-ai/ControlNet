@@ -95,12 +95,15 @@ class FaceNet:
                 fill=block_fill
             )
 
-    def create_embedding_image(self, image: Image.Image) -> Image.Image:
+    def create_embedding_image(self, image: Image.Image, empty_image_on_failure: bool = True) -> Image.Image:
         image = Image.new(PIXEL_FORMAT, image.size)
         # Detect all faces:
         faces, probabilities, bboxes, _ = self.detector(image)
         if faces is None:
-            return image
+            if empty_image_on_failure:
+                return image
+            else:
+                return None
         embeddings = self.encoder(faces)
         for idx in range(0, faces.shape[0]):
             width = bboxes[idx, 2] - bboxes[idx, 0]
