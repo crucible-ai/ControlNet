@@ -96,12 +96,12 @@ class FaceNet:
             )
 
     def create_embedding_image(self, image: Image.Image, empty_image_on_failure: bool = True) -> Image.Image:
-        image = Image.new(PIXEL_FORMAT, image.size)
+        result = Image.new(PIXEL_FORMAT, image.size)
         # Detect all faces:
         faces, probabilities, bboxes, _ = self.detector(image)
         if faces is None:
             if empty_image_on_failure:
-                return image
+                return result
             else:
                 return None
         embeddings = self.encoder(faces)
@@ -115,9 +115,9 @@ class FaceNet:
                 embeddings[idx, :],
                 (center_x, center_y),
                 size,
-                image,
+                result,
             )
-        return image
+        return result
 
 
 def get_torch_home():
