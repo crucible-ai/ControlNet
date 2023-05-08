@@ -5,6 +5,7 @@ from typing import Mapping, Tuple
 import numpy
 import torch
 from PIL import Image, ImageDraw
+from torchvision.transforms.functional import pil_to_tensor
 
 from .models.mtcnn import MTCNN
 from .models.inception_resnet_v1 import InceptionResnetV1
@@ -15,8 +16,11 @@ PIXEL_FORMAT = 'RGB'  # ControlNet expected RGB data.
 
 
 class FaceNet:
-    def __init__(self, model_path=None):
-        device = torch.device("cpu")
+    def __init__(self, model_path=None, device=None):
+        if device is None:
+            self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        else:
+            self.device = device
         # Note: image-size is the desired OUTPUT image size after a crop is performed.
         # It gives the square width of x_aligned, probs = mtcnn(img...)
         self.detector = MTCNN(
@@ -104,20 +108,24 @@ class FaceNet:
                 return result
             else:
                 return None
-        embeddings = self.encoder(faces)
-        for idx in range(0, faces.shape[0]):
-            width = bboxes[idx, 2] - bboxes[idx, 0]
-            height = bboxes[idx, 3] - bboxes[idx, 1]
-            center_x = bboxes[idx, 0] + (width//2)
-            center_y = bboxes[idx, 1] + (height//2)
-            size = max(width, height)
-            FaceNet.draw_embedding_image(
-                embeddings[idx, :],
-                (center_x, center_y),
-                size,
-                result,
-            )
-        return result
+        with torch.no_grad():
+            if self.device.type() == "cpu":
+                embeddings = self.encoder(faces)
+            else:
+                embeddings = self.encoder(torch.tensor(faces).to(self.device)).to("cpu").numpy()
+            for idx in range(0, faces.shape[0]):
+                width = bboxes[idx, 2] - bboxes[idx, 0]
+                height = bboxes[idx, 3] - bboxes[idx, 1]
+                center_x = bboxes[idx, 0] + (width//2)
+                center_y = bboxes[idx, 1] + (height//2)
+                size = max(width, height)
+                FaceNet.draw_embedding_image(
+                    embeddings[idx, :],
+                    (center_x, center_y),
+                    size,
+                    result,
+                )
+            return result
 
 
 def get_torch_home():
