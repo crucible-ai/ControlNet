@@ -16,7 +16,7 @@ from share import *
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 facenet_model = FaceNet("./annotator/facenet/models/data", device=device)
-controlnet_model = create_model('./models/cldm_v21.yaml').cpu()
+controlnet_model = create_model('./models/cldm_v15.yaml').cpu()
 controlnet_model.load_state_dict(load_state_dict('./models/controlnet_sd15_laion_face_epoch=2_step=84999_loss=0.ckpt', location=device.type))
 controlnet_model = controlnet_model.to(device)
 ddim_sampler = DDIMSampler(controlnet_model)  # ControlNet _only_ works with DDIM.
