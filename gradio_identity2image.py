@@ -39,8 +39,10 @@ def process(
     with torch.no_grad():
         # Extract the embedding from the face.
         face_embedding = facenet_model.create_embedding_image(identity_image, empty_image_on_failure=False)
+        identity, _ = facenet_model.get_all_embeddings(identity_image)
         assert face_embedding is not None
         visualization = face_embedding.copy()  # Save to help debug.
+        identity = ",".join(float(x) for x in identity[0,:])
 
         #empty = numpy.moveaxis(empty, 2, 0)  # h, w, c -> c, h, w
         control = pil_to_tensor(face_embedding).to(device).to(torch.float) / 255.0
@@ -90,7 +92,7 @@ def process(
         x_samples = numpy.moveaxis((x_samples * 127.5 + 127.5).cpu().numpy().clip(0, 255).astype(numpy.uint8), 1, -1)  # b, c, h, w -> b, h, w, c
         results = [visualization] + [x_samples[i] for i in range(num_samples)]
 
-    return results
+    return results, identity
 
 
 block = gr.Blocks().queue()
@@ -115,8 +117,9 @@ with block:
                 n_prompt = gr.Textbox(label="Negative Prompt", value='')
         with gr.Column():
             result_gallery = gr.Gallery(label='Output', show_label=False, elem_id="gallery").style(grid=2, height='auto')
+            embedding_identity = gr.Textbox(label='Identity')
     ips = [identity_image, target_position, prompt, a_prompt, n_prompt, num_samples, ddim_steps, guess_mode, strength, scale, seed, eta]
-    run_button.click(fn=process, inputs=ips, outputs=[result_gallery])
+    run_button.click(fn=process, inputs=ips, outputs=[result_gallery, embedding_identity])
 
 
 block.launch(server_name='0.0.0.0')
