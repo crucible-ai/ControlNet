@@ -42,7 +42,7 @@ def process(
         identity, _ = facenet_model.get_all_embeddings(identity_image)
         assert face_embedding is not None
         visualization = face_embedding.copy()  # Save to help debug.
-        identity = ",".join(float(x) for x in identity[0,:])
+        identity = ",".join(str(x) for x in identity[0, :])
 
         #empty = numpy.moveaxis(empty, 2, 0)  # h, w, c -> c, h, w
         control = pil_to_tensor(face_embedding).to(device).to(torch.float) / 255.0
