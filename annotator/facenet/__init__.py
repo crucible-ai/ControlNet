@@ -110,7 +110,7 @@ class FaceNet:
             else:
                 return None
         with torch.no_grad():
-            if self.device.type() == "cpu":
+            if self.device.type == "cpu":
                 embeddings = self.encoder(faces)
             else:
                 embeddings = self.encoder(torch.tensor(faces).to(self.device)).to("cpu").numpy()
@@ -136,7 +136,7 @@ class FaceNet:
         if faces is None:
             return None, None, None
         with torch.no_grad():
-            if self.device.type() == "cpu":
+            if self.device.type == "cpu":
                 embeddings = self.encoder(faces)
             else:
                 embeddings = self.encoder(torch.tensor(faces).to(self.device)).to("cpu").numpy()
