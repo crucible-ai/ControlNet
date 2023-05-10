@@ -100,6 +100,7 @@ class FaceNet:
             )
 
     def create_embedding_image(self, image: Image.Image, empty_image_on_failure: bool = True) -> Image.Image:
+        """Given an input image with faces on it, draw blocks of identity embeddings to a new image."""
         result = Image.new(PIXEL_FORMAT, image.size)
         # Detect all faces:
         faces, probabilities, bboxes, _ = self.detector(image)
@@ -126,6 +127,20 @@ class FaceNet:
                     result,
                 )
             return result
+
+    def get_all_embeddings(self, image: Image.Image):
+        """Get the face embeddings and the confidences for the given image.
+        The face embeddings may be None if there are no detections."""
+        # Just a wrapper for the internal detector.
+        faces, probabilities, _, _ = self.detector(image)
+        if faces is None:
+            return None, None, None
+        with torch.no_grad():
+            if self.device.type() == "cpu":
+                embeddings = self.encoder(faces)
+            else:
+                embeddings = self.encoder(torch.tensor(faces).to(self.device)).to("cpu").numpy()
+        return embeddings, probabilities
 
 
 def get_torch_home():
